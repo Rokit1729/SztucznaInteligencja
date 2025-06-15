@@ -217,7 +217,7 @@ class Game:
 
 class Player:
     team_name = "Purple Cheese"
-    team_members = ["Wiktor Niedźwiedzki", "Filip Michewicz", "Mateucz Broczkowski"]
+    team_members = ["Wiktor Niedźwiedzki"]
     DEPTH = 4
 
     def alfabeta(game: Game, depth: int, alpha: float, beta: float, maximizingPlayer: bool):
