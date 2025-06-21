@@ -307,7 +307,7 @@ if __name__ == "__main__":
         if human_vs_bot and turn == PLAYER:
             game.print_board()
             try:
-                col = int(input(f"Twój ruch (0-{game.n_columns}): "))
+                col = int(input(f"Twój ruch (0-{game.n_columns-1}): "))
             except ValueError:
                 print("Podaj poprawny numer kolumny.")
                 continue
@@ -345,6 +345,7 @@ if __name__ == "__main__":
             if game.winning_move(turn):
                 if human_vs_bot:
                     print("Bot wygrał!")
+                    break
                 else:
                     gracze = {PLAYER: "Bot 0", BOT: "Bot 1"}
                     print(f"{gracze[turn]} wygrał!")
