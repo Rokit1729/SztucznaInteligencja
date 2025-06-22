@@ -1,6 +1,5 @@
 import math
 import random
-from copy import deepcopy
 
 
 class Game:
@@ -151,27 +150,29 @@ class Player:
         elif count_self == L - 1 and count_empty == 1:
             score += 500
 
-        # 3) 2 w linii + 2 puste, przy czym oba końce puste
+        # 3) 2 w linii + 2 puste
         elif count_self == L - 2 and count_empty == 2:
-            if window[0] is None and window[-1] is None:
-                score += 300
+            score += 300
 
-        # 4) 1 pionek i 3 puste – minimalna szansa
+        # 4) 1 w linii i 3 puste
         elif count_self == 1 and count_empty == L - 1:
-            score += 50
+            score += 1
 
-        # 5) Przeciwnik ma 4 w linii – natychmiastowa kara
+        # 5) Przeciwnik ma 4 w linii – przegrana
         if count_opp == L:
             score -= 1e6
 
-        # 6) Przeciwnik ma 3 w linii + 1 puste – groźba wygranej
+        # 6) Przeciwnik ma 3 w linii + 1 puste
         elif count_opp == L - 1 and count_empty == 1:
             score -= 600
 
-        # 7) Przeciwnik ma 2 w linii + 2 puste, oba końce puste
+        # 7) Przeciwnik ma 2 w linii + 2 puste
         elif count_opp == L - 2 and count_empty == 2:
-            if window[0] is None and window[-1] is None:
-                score -= 350
+            score -= 350
+
+        # 4) 1 w linii i 3 puste
+        elif count_opp == 1 and count_empty == L - 1:
+            score -= 1
 
         return score
 
@@ -180,31 +181,28 @@ class Player:
         score = 0
         R, C, L = game.n_rows, game.n_columns, game.winning_length
 
-        center_col = C // 2
-        center_array = [Player.cell(game, r, center_col) for r in range(R)]
-        center_count = center_array.count(symbol)
-        score += center_count * 6
-
-        # Bonus za środkową kolumnę
+        # 2) Okna poziome
         for row in range(R):
-            for col in range(C - L + 1):
-                window = [Player.cell(game, row, col + i) for i in range(L)]
+            for col_start in range(C - L + 1):
+                window = [Player.cell(row, col_start + i) for i in range(L)]
                 score += Player.evaluate_window(window, symbol)
 
-        # Sprawdź wszystkie okna poziome, pionowe i skośne
+        # 3) Okna pionowe
         for col in range(C):
-            for row in range(R - L + 1):
-                window = [Player.cell(game, row + i, col) for i in range(L)]
+            for row_start in range(R - L + 1):
+                window = [Player.cell(row_start + i, col) for i in range(L)]
                 score += Player.evaluate_window(window, symbol)
 
-        for row in range(R - L + 1):
-            for col in range(C - L + 1):
-                window = [Player.cell(game, row + i, col + i) for i in range(L)]
+        # 4) Okna przekątne w dół-prawo (\)
+        for row_start in range(R - L + 1):
+            for col_start in range(C - L + 1):
+                window = [Player.cell(row_start + i, col_start + i) for i in range(L)]
                 score += Player.evaluate_window(window, symbol)
 
-        for row in range(L - 1, R):
-            for col in range(C - L + 1):
-                window = [Player.cell(game, row - i, col + i) for i in range(L)]
+        # 5) Okna przekątne w górę-prawo (/)
+        for row_start in range(L - 1, R):
+            for col_start in range(C - L + 1):
+                window = [Player.cell(row_start - i, col_start + i) for i in range(L)]
                 score += Player.evaluate_window(window, symbol)
 
         return score
