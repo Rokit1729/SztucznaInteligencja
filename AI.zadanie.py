@@ -170,7 +170,7 @@ class Player:
         elif count_opp == L - 2 and count_empty == 2:
             score -= 350
 
-        # 4) 1 w linii i 3 puste
+        # 8) 1 w linii i 3 puste
         elif count_opp == 1 and count_empty == L - 1:
             score -= 1
 
