@@ -20,7 +20,7 @@ class Game:
 
 class Player:
     team_name = "Purple Cheese"
-    team_members = ["Wiktor Niedźwiedzki", "Filip Michewicz", "Mateucz Broczkowski"]
+    team_members = ["Wiktor Niedźwiedzki", "Filip Michewicz", "Mateusz Broczkowski"]
     DEPTH = 4
 
     @staticmethod
@@ -187,12 +187,12 @@ class Player:
 
         # 1) Jeżeli mamy 3 w linii i dwa po bokach puste
         if count_self == L - 2 and count_empty == 2:
-            if window[0] == None and window[L] == None:
+            if window[0] == None and window[-1] == None:
                 score += 300
 
         # 2) Jeżeli przeciwnik ma 3 w linii i dwa po bokach puste
         if count_opp == L - 2 and count_empty == 2:
-            if window[0] == None and window[L] == None:
+            if window[0] == None and window[-1] == None:
                 score -= 300
 
         return score
