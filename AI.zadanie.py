@@ -255,6 +255,30 @@ class Player:
         return score
 
 
+
+def draw_board(history, rows, columns):
+
+    board_copy = [[] for i in range(columns)]
+
+    player = 0
+    for i in history:
+        board_copy[i].append(str(player))
+        player = 1 - player
+    
+    for column in board_copy:
+        while len(column) < rows: column.append("-")
+    
+    board = [[] for i in range(rows)]
+
+    row = 0
+    for i in board:
+        for j in range(columns): i.append(board_copy[j][row])
+        row += 1
+    
+    for row in board[::-1]: print('| ' + ' | '.join(row) + ' |')
+
+
+
 def predict_next_move(move_history: list[int]) -> int:
     game = Game()
 
@@ -270,6 +294,7 @@ def predict_next_move(move_history: list[int]) -> int:
     col, score, nodes = Player.alfabeta(game, Player.DEPTH, -math.inf, math.inf, maximizing)
 
     print(f"Obecny stan planszy (gracz {current_player} na ruchu):")
+    draw_board(move_history, game.n_rows, game.n_columns)
     print(f"Ocena pozycji: {score}, Liczba odwiedzonych węzłów: {nodes}")
     return col
 
