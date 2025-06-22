@@ -255,16 +255,78 @@ class Player:
         return score
 
 
+    @staticmethod
+    # Do wizualizacji gry z botami
+    def print_board(game: Game):
+        for r in reversed(range(game.n_rows)):
+            row_symbols = []
+            for c in range(game.n_columns):
+                cell = Player.cell(game, r, c)
+                row_symbols.append(str(cell) if cell is not None else ".")
+            print("| " + " | ".join(row_symbols) + " |")
+        print("-" * (4 * game.n_columns + 1))
 
 
-game = Game()
+def predict_next_move(move_history: list[int]) -> int:
+    game = Game()
+    
+    #for move in move_history:
+    #    if not Player.make_move(move):
+    #        raise ValueError(f"Niepoprawny ruch w historii: kolumna {move} jest pełna lub nie istnieje.")
 
-game.board[0].append(0)  
-game.board[1].append(1)  
-game.board[0].append(0)  
+    for i in range(7):
+        ile = move_history.count(i)
+        if ile > 6: raise ValueError(f"Niepoprawny ruch w historii: kolumna {i} jest pełna lub nie istnieje.")
+    
+    current_player = len(move_history)%2
+    maximizing = (current_player == 1)
+    col, score, nodes = Player.alfabeta(game, Player.DEPTH, -math.inf, math.inf, maximizing)
 
-game.current_player = 1
+    print(f"Obecny stan planszy (gracz {current_player} na ruchu):")
+    Player.print_board(game)
+    print(f"Ocena pozycji: {score}, Liczba odwiedzonych węzłów: {nodes}")
+    return col
 
 
-print(Player.make_move(game))
+
+if __name__ == "__main__":
+    choice = input("Czy chcesz zobaczyć rozgrywkę Bot vs Bot? (1 = tak, 0 = lista ruchów): ")
+    if choice != "1" and choice != "0":
+        print("Błędna opcja, domyślnie lista ruchów")
+    
+    if choice == "1":
+        game = Game()
+        turn = 0
+        move_number = 0
+        while True:
+            move_number += 1
+            print(f"\nTura {move_number} - Bot {turn}")
+            col, score, nodes = Player.alfabeta(
+                game, Player.DEPTH, -math.inf, math.inf, maximizingPlayer=(turn == 1)
+            )
+            Player.drop_piece(game, col, turn)
+            game.current_player = 1 - game.current_player  # zmiana gracza
+            print(f"Bot {turn} wybiera kolumnę {col}")
+            Player.print_board(game)
+
+            if Player.winning_move(game, turn):
+                print(f"\nBot {turn} wygrywa!")
+                break
+            if Player.is_full(game):
+                print("\nRemis!")
+                break
+
+            turn = 1 - turn
+
+    else:
+        print("Podaj historię ruchów jako listę numerów kolumn, oddzielonych przecinkami (np. 0,3,1,1,0,1):")
+        wejscie = input("Historia ruchów: ")
+        try:
+            historia = [int(x.strip()) for x in wejscie.split(",") if x.strip() != ""]
+            nastepny_ruch = predict_next_move(historia)
+            print(f"Zalecany następny ruch: kolumna {nastepny_ruch}")
+        except ValueError as e:
+            print(f"Błąd: {e}")
+        except Exception as e:
+            print(f"Wystąpił nieoczekiwany błąd: {e}")
 
