@@ -255,35 +255,21 @@ class Player:
         return score
 
 
-    @staticmethod
-    # Do wizualizacji gry z botami
-    def print_board(game: Game):
-        for r in reversed(range(game.n_rows)):
-            row_symbols = []
-            for c in range(game.n_columns):
-                cell = Player.cell(game, r, c)
-                row_symbols.append(str(cell) if cell is not None else ".")
-            print("| " + " | ".join(row_symbols) + " |")
-        print("-" * (4 * game.n_columns + 1))
-
-
 def predict_next_move(move_history: list[int]) -> int:
     game = Game()
-    
-    #for move in move_history:
-    #    if not Player.make_move(move):
-    #        raise ValueError(f"Niepoprawny ruch w historii: kolumna {move} jest pełna lub nie istnieje.")
 
-    for i in range(7):
+    for i in range(game.n_rows):
         ile = move_history.count(i)
-        if ile > 6: raise ValueError(f"Niepoprawny ruch w historii: kolumna {i} jest pełna lub nie istnieje.")
+        if ile >= game.n_columns: raise ValueError(f"Niepoprawny ruch w historii: kolumna {i} jest pełna")
+
+    for i in move_history:
+        if i < 0 or i >= game.n_rows: raise ValueError(f"Niepoprawny ruch w historii: kolumna {i} nie istnieje")
     
     current_player = len(move_history)%2
     maximizing = (current_player == 1)
     col, score, nodes = Player.alfabeta(game, Player.DEPTH, -math.inf, math.inf, maximizing)
 
     print(f"Obecny stan planszy (gracz {current_player} na ruchu):")
-    Player.print_board(game)
     print(f"Ocena pozycji: {score}, Liczba odwiedzonych węzłów: {nodes}")
     return col
 
