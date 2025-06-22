@@ -177,33 +177,81 @@ class Player:
         return score
 
     @staticmethod
+    def evaluate_window_longer(window, symbol):
+        score = 0
+        opp = 1 - symbol
+        L = len(window)
+
+        count_self = window.count(symbol)
+        count_opp = window.count(opp)
+        count_empty = window.count(None)
+
+        # 1) Jeżeli mamy 3 w linii i dwa po bokach puste
+        if count_self == L - 2 and count_empty == 2:
+            if window[0] == None and window[L] == None:
+                score += 300
+
+        # 2) Jeżeli przeciwnik ma 3 w linii i dwa po bokach puste
+        if count_opp == L - 2 and count_empty == 2:
+            if window[0] == None and window[L] == None:
+                score -= 300
+
+        return score
+
+    @staticmethod
     def score_position(game: Game, symbol: int):
         score = 0
         R, C, L = game.n_rows, game.n_columns, game.winning_length
 
-        # 2) Okna poziome
+        # 1) Okna poziome
         for row in range(R):
             for col_start in range(C - L + 1):
                 window = [Player.cell(row, col_start + i) for i in range(L)]
                 score += Player.evaluate_window(window, symbol)
 
-        # 3) Okna pionowe
+        # 2) Okna pionowe
         for col in range(C):
             for row_start in range(R - L + 1):
                 window = [Player.cell(row_start + i, col) for i in range(L)]
                 score += Player.evaluate_window(window, symbol)
 
-        # 4) Okna przekątne w dół-prawo (\)
+        # 3) Okna przekątne w dół-prawo (\)
         for row_start in range(R - L + 1):
             for col_start in range(C - L + 1):
                 window = [Player.cell(row_start + i, col_start + i) for i in range(L)]
                 score += Player.evaluate_window(window, symbol)
 
-        # 5) Okna przekątne w górę-prawo (/)
+        # 4) Okna przekątne w górę-prawo (/)
         for row_start in range(L - 1, R):
             for col_start in range(C - L + 1):
                 window = [Player.cell(row_start - i, col_start + i) for i in range(L)]
                 score += Player.evaluate_window(window, symbol)
+
+        L_extra = L + 1
+
+        # 5) Okna poziome - długości 5
+        for row in range(R):
+            for col_start in range(C - L_extra + 1):
+                window = [Player.cell(row, col_start + i) for i in range(L_extra)]
+                score += Player.evaluate_window_longer(window, symbol)
+
+        # 6) Okna pionowe - długości 5
+        for col in range(C):
+            for row_start in range(R - L_extra + 1):
+                window = [Player.cell(row_start + i, col) for i in range(L_extra)]
+                score += Player.evaluate_window_longer(window, symbol)
+
+        # 7) Okna przekątne w dół-prawo (\) - długości 5
+        for row_start in range(R - L_extra + 1):
+            for col_start in range(C - L_extra + 1):
+                window = [Player.cell(row_start + i, col_start + i) for i in range(L_extra)]
+                score += Player.evaluate_window_longer(window, symbol)
+
+        # 8) Okna przekątne w górę-prawo (/) - długości 5
+        for row_start in range(L_extra - 1, R):
+            for col_start in range(C - L_extra + 1):
+                window = [Player.cell(row_start - i, col_start + i) for i in range(L_extra)]
+                score += Player.evaluate_window_longer(window, symbol)
 
         return score
 
