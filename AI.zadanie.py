@@ -21,16 +21,42 @@ class Game:
 class Player:
     team_name = "Purple Cheese"
     team_members = ["Wiktor Niedźwiedzki", "Filip Michewicz", "Mateusz Broczkowski"]
-    DEPTH = 4
+    DEPTH = 5
 
     @staticmethod
     def make_move(game: Game) -> int:
+        """
+        Wybiera ruch dla aktualnej pozycji gry:
+        - Określa, czy obecny gracz to maksymalizujący (player 1).
+        - Uruchamia algorytm alfa-beta na zadanej głębokości Player.DEPTH.
+        - Zwraca wybraną kolumnę.
+        """
         maximizing = game.current_player == 1
         col, _, _ = Player.alfabeta(game, Player.DEPTH, -math.inf, math.inf, maximizing)
         return col
 
     @staticmethod
     def alfabeta(game: Game, depth: int, alpha: float, beta: float, maximizingPlayer: bool):
+        """
+        Algorytm minimax z cięciami alfa-beta:
+        - Parametry:
+            game: bieżący stan gry
+            depth: pozostała głębokość przeszukiwania
+            alpha, beta: wartości graniczne dla cięć alfa-beta
+            maximizingPlayer: True jeśli szukamy ruchu maksymalizującego, False jeśli minimalizującego
+        - Zwraca krotkę (chosen_col, value, nodes):
+            chosen_col: najlepsza kolumna do zagrania (None, jeśli liść lub brak ruchów)
+            value: ocena pozycji
+            nodes: liczba odwiedzonych węzłów w tej gałęzi
+        - Jeżeli plansza pełna, występuje wygrana którejś strony lub depth == 0: 
+            oblicza ocenę pozycji wywołując score_position i zwraca wynik.
+        - W przeciwnym razie:
+            - Pobiera listę możliwych ruchów.
+            - Dla każdego ruchu tworzy kopię stanu, wykonuje ruch (drop_piece) i wywołuje rekurencyjnie alfabeta z pomniejszonym depth.
+            - Uaktualnia alpha/beta i wykonuje przycięcia (jeśli alpha >= beta).
+            - Śledzi liczbę odwiedzonych węzłów (sumuje child_nodes).
+            - Zwraca najlepszy ruch i jego wartość oraz całkowitą liczbę węzłów.
+        """
         nodes = 1
 
         if Player.is_full(game) or Player.winning_move(game, 0) or Player.winning_move(game, 1) or depth == 0:
@@ -74,6 +100,13 @@ class Player:
 
     @staticmethod
     def copy(game: Game) -> Game:
+        """
+        Tworzy głęboką kopię obiektu Game:
+        - Kopiuje wymiary (n_rows, n_columns, winning_length) i current_player.
+        - Kopiuje historię ruchów (listę).
+        - Kopiuje każdą kolumnę planszy jako nową listę.
+        - Zwraca nowy obiekt Game.
+        """
         new_game = Game(game.n_rows, game.n_columns, game.winning_length)
         new_game.current_player = game.current_player
         new_game.move_history = list(game.move_history)
@@ -82,20 +115,36 @@ class Player:
 
     @staticmethod
     def valid_moves(game: Game):
+        """
+        Zwraca listę indeksów kolumn, do których można wciąż wrzucić pionek.
+        """
         return [col for col in range(game.n_columns) if len(game.board[col]) < game.n_rows]
 
     @staticmethod
     def is_full(game: Game):
+        """
+        Sprawdza, czy plansza jest w pełni zapełniona.
+        """
         return all(len(game.board[col]) >= game.n_rows for col in range(game.n_columns))
 
     @staticmethod
     def cell(game: Game, row: int, col: int):
+        """
+        Zwraca wartość komórki na danym wierszu i kolumnie:
+        - Jeśli w danej kolumnie nie ma jeszcze takiego wiersza (lista krótsza), zwraca None.
+        - W przeciwnym razie zwraca wartość symbolu (0 lub 1).
+        """
         if row < len(game.board[col]):
             return game.board[col][row]
         return None
 
     @staticmethod
     def drop_piece(game: Game, column: int, symbol: int):
+        """
+        Wrzuca pionek o danym symbolu (0 lub 1) do wybranej kolumny:
+        - Jeśli kolumna jest pełna lub niedopuszczalna, zwraca False.
+        - W przeciwnym razie dodaje symbol na szczyt kolumny i zwraca True.
+        """
         if column not in Player.valid_moves(game):
             return False
         game.board[column].append(symbol)
@@ -103,6 +152,16 @@ class Player:
 
     @staticmethod
     def winning_move(game: Game, player: int):
+        """
+        Sprawdza, czy dany gracz (player: 0 lub 1) ma zwycięską sekwencję długości winning_length:
+        - Sprawdza wszystkie możliwe kierunki:
+          1) Poziomo (rząd stały, kolumna zmienna)
+          2) Pionowo (kolumna stała, rząd zmienny)
+          3) Przekątna w dół-prawo (\)
+          4) Przekątna w górę-prawo (/)
+        - Dla każdego możliwego startu sekwencji długości L sprawdza, czy wszystkie komórki są równe player.
+        - Jeśli znajdzie sekwencję, zwraca True, w przeciwnym razie False.
+        """
         L, R, C = game.winning_length, game.n_rows, game.n_columns
 
         # 1) Poziomo
@@ -133,6 +192,23 @@ class Player:
 
     @staticmethod
     def evaluate_window(window, symbol):
+        """
+        Ocena krótkiego "okna" (lista długości L) pod kątem określonego symbolu:
+        - window: lista wartości [0,1,None]; symbol: 0 lub 1
+        - count_self = liczba wystąpień naszego symbolu w oknie
+        - count_opp = liczba wystąpień przeciwnika
+        - count_empty = liczba None (wolnych miejsc)
+        - Przyznaje punkty:
+          1) Jeśli mamy pełne okno własnym symbolem (count_self == L): +121000
+          2) 3 własne + 1 puste: +2575
+          3) 2 własne + 2 puste: +50
+          4) 1 własne + 3 puste: +1
+          5) Jeśli przeciwnik ma pełne okno: -121000
+          6) Przeciwnik 3 + 1 puste: -2575
+          7) Przeciwnik 2 + 2 puste: -50
+          8) Przeciwnik 1 + 3 puste: -1
+        - Zwraca wartość score (dodatnią lub ujemną).
+        """
         score = 0
         opp = 1 - symbol
         L = len(window)
@@ -143,15 +219,15 @@ class Player:
 
         # 1) Jeżeli mamy 4 w linii – wygrana
         if count_self == L:
-            score += 1e6
+            score += 121000
 
         # 2) 3 w linii + 1 puste
         elif count_self == L - 1 and count_empty == 1:
-            score += 500
+            score += 2575
 
         # 3) 2 w linii + 2 puste
         elif count_self == L - 2 and count_empty == 2:
-            score += 300
+            score += 50
 
         # 4) 1 w linii i 3 puste
         elif count_self == 1 and count_empty == L - 1:
@@ -159,15 +235,15 @@ class Player:
 
         # 5) Przeciwnik ma 4 w linii – przegrana
         if count_opp == L:
-            score -= 1e6
+            score -= 121000
 
         # 6) Przeciwnik ma 3 w linii + 1 puste
         elif count_opp == L - 1 and count_empty == 1:
-            score -= 600
+            score -= 2575
 
         # 7) Przeciwnik ma 2 w linii + 2 puste
         elif count_opp == L - 2 and count_empty == 2:
-            score -= 350
+            score -= 50
 
         # 8) 1 w linii i 3 puste
         elif count_opp == 1 and count_empty == L - 1:
@@ -177,6 +253,13 @@ class Player:
 
     @staticmethod
     def evaluate_window_longer(window, symbol):
+        """
+        Ocena dłuższego "okna" (np. długości winning_length+1):
+        - Sprawdza sytuacje, gdy mamy 3 w linii i obydwa boki puste:
+          1) Jeśli my mamy count_self == L-2 i oba końce None: +250
+          2) Jeśli przeciwnik ma count_opp == L-2 i oba końce None: -250
+        - Przydatne do wykrywania ukrytych możliwości („wąskie” okna z pustymi bokami).
+        """
         score = 0
         opp = 1 - symbol
         L = len(window)
@@ -188,17 +271,32 @@ class Player:
         # 1) Jeżeli mamy 3 w linii i dwa po bokach puste
         if count_self == L - 2 and count_empty == 2:
             if window[0] == None and window[-1] == None:
-                score += 300
+                score += 250
 
         # 2) Jeżeli przeciwnik ma 3 w linii i dwa po bokach puste
         if count_opp == L - 2 and count_empty == 2:
             if window[0] == None and window[-1] == None:
-                score -= 300
+                score -= 250
 
         return score
 
     @staticmethod
     def score_position(game: Game, symbol: int):
+        """
+        Sumuje oceny wszystkich możliwych "okien" dla danego symbolu na planszy:
+        - Przechodzi przez wszystkie kierunki i pozycje startowe:
+          1) Okna poziome długości winning_length
+          2) Okna pionowe długości winning_length
+          3) Okna przekątne w dół-prawo (\) długości winning_length
+          4) Okna przekątne w górę-prawo (/) długości winning_length
+        - Dodatkowo:
+          5) Okna poziome długości winning_length+1 (wywołuje evaluate_window_longer)
+          6) Okna pionowe długości winning_length+1
+          7) Okna przekątne w dół-prawo długości winning_length+1
+          8) Okna przekątne w górę-prawo długości winning_length+1
+        - Dla każdego okna zbiera odpowiednią ocenę i sumuje do całkowitego wyniku.
+        - Zwraca skumulowany wynik (im wyższy, tym lepiej dla danego symbolu).
+        """
         score = 0
         R, C, L = game.n_rows, game.n_columns, game.winning_length
 
@@ -255,31 +353,19 @@ class Player:
         return score
 
 
-
-def draw_board(history, rows, columns):
-
-    board_copy = [[] for i in range(columns)]
-
-    player = 0
-    for i in history:
-        board_copy[i].append(str(player))
-        player = 1 - player
-    
-    for column in board_copy:
-        while len(column) < rows: column.append("-")
-    
-    board = [[] for i in range(rows)]
-
-    row = 0
-    for i in board:
-        for j in range(columns): i.append(board_copy[j][row])
-        row += 1
-    
-    for row in board[::-1]: print('| ' + ' | '.join(row) + ' |')
-
-
-
 def predict_next_move(move_history: list[int]) -> int:
+    """
+    Na podstawie historii ruchów (lista numerów kolumn) sugeruje kolejny ruch:
+    - Tworzy nową grę Game().
+    - Weryfikuje, czy w historii nie ma nieprawidłowych ruchów:
+      * Sprawdza, czy kolumna nie została przepełniona (zbyt wiele wystąpień numeru kolumny).
+      * Sprawdza, czy numer kolumny jest w dopuszczalnym zakresie [0, n_rows).
+      (Uwaga: prawdopodobnie zamiast n_rows powinno się odwołać do n_columns przy sprawdzaniu zakresu.)
+    - Oblicza, który gracz jest teraz na ruchu na podstawie długości historii.
+    - Uruchamia algorytm alfa-beta z domyślną głębokością Player.DEPTH.
+    - Wyświetla ocenę pozycji i liczbę odwiedzonych węzłów.
+    - Zwraca zalecaną kolumnę.
+    """
     game = Game()
 
     for i in range(game.n_rows):
@@ -294,7 +380,6 @@ def predict_next_move(move_history: list[int]) -> int:
     col, score, nodes = Player.alfabeta(game, Player.DEPTH, -math.inf, math.inf, maximizing)
 
     print(f"Obecny stan planszy (gracz {current_player} na ruchu):")
-    draw_board(move_history, game.n_rows, game.n_columns)
     print(f"Ocena pozycji: {score}, Liczba odwiedzonych węzłów: {nodes}")
     return col
 
