@@ -1,41 +1,8 @@
-import random
 import math
+import random
 import time
 
-
 class Game:
-    """
-    Klasa reprezentująca rozgrywkę naszej gry. Zawiera następujące pola:
-
-    n_rows, n_columns : 
-        liczba wierszy i kolumn na planszy (domyślnie 7)
-    winning_length : 
-        liczba symboli w jednej linii potrzebna, aby wygrać (domyślnie 4)
-    board : 
-        plansza, reprezentowana jako lista list. Każda lista to jedna kolumna, a symbole na tej liście 
-        to symbole w tej kolumnie, od najniższego do najwyższego. Np. jeśli plansza w grze 4x4 wygląda tak:
-
-        +-+-+-+-+
-        | | | | |
-        +-+-+-+-+
-        | |1| | |
-        +-+-+-+-+
-        |0|1| | |
-        +-+-+-+-+
-        |0|0| |1|
-        +-+-+-+-+
-        
-        to zmienna board ma wartość [[0,0], [0,1,1], [], [1]]
-
-        Gracze zawsze reprezentowani są symbolami 0 i 1, zaczyna gracz 0.
-
-    current_player : 
-        gracz, na którego ruch aktualnie czekamy. Może to być tylko wartość 0 lub 1, na początku gry jest to 0.
-
-    move_history : 
-        historia ruchów od początku rozgrywki, w postaci listy kolumn, w których kolejno były umieszczane symbole. 
-        Np. plansza z przykładu wyżej mogłaby odpowiadać następującej wartości zmiennej move_history : [0,3,1,1,0,1]
-    """
     n_rows: int
     n_columns: int
     winning_length: int
@@ -51,313 +18,406 @@ class Game:
         self.board = [[] for _ in range(self.n_columns)]
         self.move_history = []
 
-    def make_move(self, column):
-        """
-        Wstawia pionek aktualnego gracza (self.current_player) do kolumny 'column'.
-        Jeżeli ruch jest nieprawidłowy (kolumna pełna lub indeks spoza zakresu), zwraca False.
-        W przeciwnym razie:
-          1) dopisuje symbol (0 lub 1) do self.board[column] na koniec listy,
-          2) dodaje kolumnę do move_history,
-          3) zamienia current_player = 1 - current_player,
-          4) zwraca True.
-        """
-        if column < 0 or column >= self.n_columns:
-            return False
-        if len(self.board[column]) >= self.n_rows:
-            return False
-
-        self.board[column].append(self.current_player)
-        self.move_history.append(column)
-        self.current_player = 1 - self.current_player
-        return True
-    
-    def valid_moves(self):
-        return [col for col in range(self.n_columns) if len(self.board[col]) < self.n_rows]
-    
-    def is_full(self):
-        return all(len(self.board[col]) >= self.n_rows for col in range(self.n_columns))
-
-    def cell(self, row, col):
-        if row < len(self.board[col]):
-            return self.board[col][row]
-        return None
-    
-    def drop_piece(self, column, symbol):
-        if column not in self.valid_moves():
-            return False
-        self.board[column].append(symbol)
-        return True
-
-    def winning_move(self, player):
-        L = self.winning_length
-        R = self.n_rows
-        C = self.n_columns
-
-        # 1) Poziomo
-        for row in range(R):
-            for col_start in range(C - L + 1):
-                if all(self.cell(row, col_start + i) == player for i in range(L)):
-                    return True
-
-        # 2) Pionowo
-        for col in range(C):
-            for row_start in range(R - L + 1):
-                if all(self.cell(row_start + i, col) == player for i in range(L)):
-                    return True
-
-        # 3) Przekątna w dół-prawo (\)
-        for row_start in range(R - L + 1):
-            for col_start in range(C - L + 1):
-                if all(self.cell(row_start + i, col_start + i) == player for i in range(L)):
-                    return True
-
-        # 4) Przekątna w górę-prawo (/)
-        for row_start in range(L - 1, R):
-            for col_start in range(C - L + 1):
-                if all(self.cell(row_start - i, col_start + i) == player for i in range(L)):
-                    return True
-
-        return False
-
-    def game_over(self):
-        return self.winning_move(0) or self.winning_move(1) or self.is_full()
-
-    def print_board(self):
-        for r in reversed(range(self.n_rows)):
-            row_symbols = []
-            for c in range(self.n_columns):
-                cell = self.cell(r, c)
-                row_symbols.append(str(cell) if cell is not None else ".")
-            print("| " + " | ".join(row_symbols) + " |")
-        print("-" * (4 * self.n_columns + 1))
-
-    def copy(self):
-        new_game = Game(self.n_rows, self.n_columns, self.winning_length)
-        new_game.current_player = self.current_player
-        new_game.move_history = self.move_history.copy()
-        new_game.board = [col.copy() for col in self.board]
-        return new_game
-
-    def evaluate_window(self, window, symbol):
-        score = 0.0
-        opp = 1 - symbol
-        L = self.winning_length
-
-        count_self = window.count(symbol)
-        count_opp = window.count(opp)
-        count_empty = window.count(None)
-
-        # 1) Jeżeli mamy 4 w linii
-        if count_self == L:
-            score += 1e6
-        # 2) 3 w linii + 1 puste
-        elif count_self == L - 1 and count_empty == 1:
-            score += 500
-        # 3) 2 w linii + 2 puste
-        elif count_self == L - 2 and count_empty == 2:
-            score += 200
-
-        # Premia, jeśli 3 w linii i oba końce puste
-        # Do poprawki
-        #if count_self == L - 2 and window[0] is None and window[-1] is None:
-        #    score += 300
-
-        # Blokowanie przeciwnika
-        if count_opp == L:
-            score -= 1e10
-        elif count_opp == L - 1 and count_empty == 1:
-            score -= 400
-        elif count_opp == L - 2 and count_empty == 2:
-            score -= 100
-
-        return score
-
-    def score_position(self, symbol):
-        score = 0.0
-        R = self.n_rows
-        C = self.n_columns
-        L = self.winning_length
-        opp = 1 - symbol
-
-        # 1) Kolumny bliżej środka dają premię
-        # Wstępnie napisać na kartce które pozycje dają ile możliwości na wygraną i je punktować np. dla środowego kwadratu jest to 16 a dla narożnika tylko 3
-        for col in range(C):
-            distance = min(col, C - 1 - col)
-            count_self = sum(1 for row in range(R) if self.cell(row, col) == symbol)
-            count_opp = sum(1 for row in range(R) if self.cell(row, col) == opp)
-            score += distance * count_self
-            score -= distance * count_opp
-
-        # 2) Okna poziome
-        for row in range(R):
-            for col_start in range(C - L + 1):
-                window = [self.cell(row, col_start + i) for i in range(L)]
-                score += self.evaluate_window(window, symbol)
-
-        # 3) Okna pionowe
-        for col in range(C):
-            for row_start in range(R - L + 1):
-                window = [self.cell(row_start + i, col) for i in range(L)]
-                score += self.evaluate_window(window, symbol)
-
-        # 4) Okna przekątne w dół-prawo (\)
-        for row_start in range(R - L + 1):
-            for col_start in range(C - L + 1):
-                window = [self.cell(row_start + i, col_start + i) for i in range(L)]
-                score += self.evaluate_window(window, symbol)
-
-        # 5) Okna przekątne w górę-prawo (/)
-        for row_start in range(L - 1, R):
-            for col_start in range(C - L + 1):
-                window = [self.cell(row_start - i, col_start + i) for i in range(L)]
-                score += self.evaluate_window(window, symbol)
-
-        return score
-
 
 class Player:
+    
     team_name = "Purple Cheese"
-    team_members = ["Wiktor Niedźwiedzki"]
-    DEPTH = 4
+    team_members = ["Wiktor Niedźwiedzki", "Filip Michewicz", "Mateusz Broczkowski"]
+    DEPTH = 6
 
+    @staticmethod
     def alfabeta(game: Game, depth: int, alpha: float, beta: float, maximizingPlayer: bool):
-        nodes = 1
+        """
+        Wykonuje algorytm minimax z cięciami alfa-beta.
 
-        if game.is_full(): # Remis
-            return (None, 0.0, nodes)
-        if depth == 0:
-            return (None, game.score_position(1), nodes)
+        Args:
+            game (Game): bieżący stan gry.
+            depth (int): pozostała głębokość przeszukiwania.
+            alpha (float): najlepsza dotychczas znaleziona wartość dla gracza maksymalizującego.
+            beta (float): najlepsza dotychczas znaleziona wartość dla gracza minimalizującego.
+            maximizingPlayer (bool): True, jeśli ruch maksymalizuje ocenę (gracz 1), False dla gracza 0.
 
-        valid_cols = game.valid_moves()
+        Returns:
+            tuple[int|None, float, int]: (kolumna, wartość oceny).
+        """
+        
+        # 1) Na każdym węźle najpierw sprawdza czy może już wygrał
+        if Player.winning_move(game, 1 if maximizingPlayer else 0):
+            if maximizingPlayer:
+                return (None, math.inf)
+            else:
+                return (None, -math.inf)
+        
+        # 2) Jeżeli doszło do remisu
+        valid_cols = Player.valid_moves(game)
         if not valid_cols:
-            return (None, 0.0, nodes)
+            return (None, 0.0)
+        
+        # 3) Na najgłębszym węźle dokonuje walidacji
+        if depth == 0:
+            score = Player.score_position(game, 1 if maximizingPlayer else 0)
+            return (None, score)
 
+        # 4) Na pozostałych węzła dokonuje klasycznej alfabety z prunningiem
         if maximizingPlayer:
             value = -math.inf
             chosen_col = random.choice(valid_cols)
             for col in valid_cols:
-                child_game = game.copy()
-                child_game.drop_piece(col, 1)
-                _, score_child, child_nodes = Player.alfabeta(child_game, depth - 1, alpha, beta, False)
-                nodes += child_nodes
+                child = Player.copy(game)
+                Player.drop_piece(child, col, 1)
+                _, score_child = Player.alfabeta(child, depth - 1, alpha, beta, False)
                 if score_child > value:
                     value = score_child
                     chosen_col = col
                 alpha = max(alpha, value)
                 if alpha >= beta:
                     break
-            return (chosen_col, value, nodes)
+            return (chosen_col, value)
         else:
             value = math.inf
             chosen_col = random.choice(valid_cols)
             for col in valid_cols:
-                child_game = game.copy()
-                child_game.drop_piece(col, 0)
-                _, score_child, child_nodes = Player.alfabeta(child_game, depth - 1, alpha, beta, True)
-                nodes += child_nodes
+                child = Player.copy(game)
+                Player.drop_piece(child, col, 0)
+                _, score_child = Player.alfabeta(child, depth - 1, alpha, beta, True)
                 if score_child < value:
                     value = score_child
                     chosen_col = col
                 beta = min(beta, value)
                 if alpha >= beta:
                     break
-            return (chosen_col, value, nodes)
+            return (chosen_col, value)
 
-    def make_move(self, game: Game) -> int:
-        col, _, _ = Player.alfabeta(game, Player.DEPTH, -math.inf, math.inf, True)
+    @staticmethod
+    def copy(game: Game) -> Game:
+        """
+        Tworzy głęboką kopię obiektu Game:
+        - Kopiuje wymiary (n_rows, n_columns, winning_length) i current_player.
+        - Kopiuje historię ruchów (listę).
+        - Kopiuje każdą kolumnę planszy jako nową listę.
+        - Zwraca nowy obiekt Game.
+        """
+        new_game = Game(game.n_rows, game.n_columns, game.winning_length)
+        new_game.current_player = game.current_player
+        new_game.move_history = list(game.move_history)
+        new_game.board = [list(col) for col in game.board]
+        return new_game
+
+    @staticmethod
+    def valid_moves(game: Game):
+        """
+        Zwraca listę indeksów kolumn, do których można wciąż wrzucić pionek.
+        """
+        return [col for col in range(game.n_columns) if len(game.board[col]) < game.n_rows]
+
+    @staticmethod
+    def is_full(game: Game):
+        """
+        Sprawdza, czy plansza jest w pełni zapełniona.
+        """
+        return all(len(game.board[col]) >= game.n_rows for col in range(game.n_columns))
+
+    @staticmethod
+    def cell(game: Game, row: int, col: int):
+        """
+        Zwraca wartość komórki na danym wierszu i kolumnie:
+        - Jeśli w danej kolumnie nie ma jeszcze takiego wiersza (lista krótsza), zwraca None.
+        - W przeciwnym razie zwraca wartość symbolu (0 lub 1).
+        """
+        if row < len(game.board[col]):
+            return game.board[col][row]
+        return None
+
+    @staticmethod
+    def drop_piece(game: Game, column: int, symbol: int):
+        """
+        Wrzuca pionek o danym symbolu (0 lub 1) do wybranej kolumny:
+        - Jeśli kolumna jest pełna lub niedopuszczalna, zwraca False.
+        - W przeciwnym razie dodaje symbol na szczyt kolumny i zwraca True.
+        """
+        
+        if column not in Player.valid_moves(game):
+            return False
+        game.board[column].append(symbol)
+        return True
+
+    @staticmethod
+    def winning_move(game: Game, player: int):
+        """
+        Sprawdza, czy dany gracz (player: 0 lub 1) ma zwycięską sekwencję długości winning_length:
+        - Sprawdza wszystkie możliwe kierunki:
+            1) Poziomo (rząd stały, kolumna zmienna)
+            2) Pionowo (kolumna stała, rząd zmienny)
+            3) Przekątna w dół-prawo (\)
+            4) Przekątna w górę-prawo (/)
+        - Dla każdego możliwego startu sekwencji długości L sprawdza, czy wszystkie komórki są równe player.
+        - Jeśli znajdzie sekwencję, zwraca True, w przeciwnym razie False.
+        """
+        
+        L, R, C = game.winning_length, game.n_rows, game.n_columns
+
+        # 1) Poziomo
+        for row in range(R):
+            for col_start in range(C - L + 1):
+                if all(Player.cell(game, row, col_start + i) == player for i in range(L)):
+                    return True
+
+        # 2) Pionowo
+        for col in range(C):
+            for row_start in range(R - L + 1):
+                if all(Player.cell(game, row_start + i, col) == player for i in range(L)):
+                    return True
+        
+        # 3) Przekątna w dół-prawo (\)
+        for row_start in range(R - L + 1):
+            for col_start in range(C - L + 1):
+                if all(Player.cell(game, row_start + i, col_start + i) == player for i in range(L)):
+                    return True
+
+        # 4) Przekątna w górę-prawo (/)
+        for row_start in range(L - 1, R):
+            for col_start in range(C - L + 1):
+                if all(Player.cell(game, row_start - i, col_start + i) == player for i in range(L)):
+                    return True
+
+        return False
+
+    @staticmethod
+    def evaluate_window(window, symbol):
+        """
+        Ocena krótkiego "okna" (lista długości L) pod kątem określonego symbolu:
+        - window: lista wartości [0,1,None]; symbol: 0 lub 1
+        - count_self = liczba wystąpień naszego symbolu w oknie
+        - count_opp = liczba wystąpień przeciwnika
+        - count_empty = liczba None (wolnych miejsc)
+        - Przyznaje punkty:
+            1) 3 własne + 1 puste: +2575
+            2) 2 własne + 2 puste: +50
+            3) 1 własne + 3 puste: +1
+            4) Przeciwnik 3 + 1 puste: -2575
+            5) Przeciwnik 2 + 2 puste: -50
+            6) Przeciwnik 1 + 3 puste: -1
+        - Zwraca wartość score (dodatnią lub ujemną).
+        """
+        
+        score = 0
+        opp = 1 - symbol
+        L = len(window)
+
+        count_self = window.count(symbol)
+        count_opp = window.count(opp)
+        count_empty = window.count(None)
+
+        # 1) 3 w linii + 1 puste
+        if count_self == L - 1 and count_empty == 1:
+            score += 2575
+        # 2) 2 w linii + 2 puste
+        elif count_self == L - 2 and count_empty == 2:
+            score += 50
+        # 3) 1 w linii i 3 puste
+        elif count_self == 1 and count_empty == L - 1:
+            score += 1
+
+        # 4) Przeciwnik 3 w linii + 1 puste
+        if count_opp == L - 1 and count_empty == 1:
+            score -= 2575
+        # 5) Przeciwnik 2 w linii + 2 puste
+        elif count_opp == L - 2 and count_empty == 2:
+            score -= 50
+        # 6) Przeciwnik 1 w linii i 3 puste
+        elif count_opp == 1 and count_empty == L - 1:
+            score -= 1
+
+        return score
+
+    @staticmethod
+    def evaluate_window_longer(window, symbol):
+        """
+        Ocena dłuższego "okna" (np. długości winning_length+1):
+        - Sprawdza sytuacje, gdy mamy 3 w linii i obydwa boki puste:
+            1) Jeśli my mamy count_self == L-2 i oba końce None: +250
+            2) Jeśli przeciwnik ma count_opp == L-2 i oba końce None: -250
+        - Przydatne do wykrywania ukrytych możliwości („wąskie” okna z pustymi bokami).
+        """
+        
+        score = 0
+        opp = 1 - symbol
+        L = len(window)
+
+        count_self = window.count(symbol)
+        count_opp = window.count(opp)
+        count_empty = window.count(None)
+
+        # 1) Jeżeli mamy 3 w linii i dwa po bokach puste
+        if count_self == L - 2 and count_empty == 2:
+            if window[0] is None and window[-1] is None:
+                score += 250
+
+        # 2) Przeciwnik ma 3 w linii i dwa po bokach puste
+        if count_opp == L - 2 and count_empty == 2:
+            if window[0] is None and window[-1] is None:
+                score -= 250
+
+        return score
+
+    @staticmethod
+    def score_position(game: Game, symbol: int):
+        """
+        Sumuje oceny wszystkich możliwych "okien" dla danego symbolu na planszy:
+        - Przechodzi przez wszystkie kierunki i pozycje startowe:
+            1) Okna poziome długości winning_length
+            2) Okna pionowe długości winning_length
+            3) Okna przekątne w dół-prawo (\) długości winning_length
+            4) Okna przekątne w górę-prawo (/) długości winning_length
+        - Dodatkowo:
+            5) Okna poziome długości winning_length+1 (wywołuje evaluate_window_longer)
+            6) Okna pionowe długości winning_length+1
+            7) Okna przekątne w dół-prawo długości winning_length+1
+            8) Okna przekątne w górę-prawo długości winning_length+1
+        - Dla każdego okna zbiera odpowiednią ocenę i sumuje do całkowitego wyniku.
+        - Zwraca skumulowany wynik (im wyższy, tym lepiej dla danego symbolu).
+        """
+        
+        score = 0
+        R, C, L = game.n_rows, game.n_columns, game.winning_length
+
+        # 1) Okna poziome
+        for row in range(R):
+            for col in range(C - L + 1):
+                window = [Player.cell(game, row, col + i) for i in range(L)]
+                score += Player.evaluate_window(window, symbol)
+
+        # 2) Okna pionowe
+        for col in range(C):
+            for row in range(R - L + 1):
+                window = [Player.cell(game, row + i, col) for i in range(L)]
+                score += Player.evaluate_window(window, symbol)
+
+        # 3) Okna przekątne w dół-prawo (\)
+        for row in range(R - L + 1):
+            for col in range(C - L + 1):
+                window = [Player.cell(game, row + i, col + i) for i in range(L)]
+                score += Player.evaluate_window(window, symbol)
+
+        # 4) Okna przekątne w górę-prawo (/)
+        for row in range(L - 1, R):
+            for col in range(C - L + 1):
+                window = [Player.cell(game, row - i, col + i) for i in range(L)]
+                score += Player.evaluate_window(window, symbol)
+
+        # Okna dłuższe o 1 (winning_length + 1)
+        L_extra = L + 1
+
+        # 5) Okna poziome - długości L+1
+        for row in range(R):
+            for col in range(C - L_extra + 1):
+                window = [Player.cell(game, row, col + i) for i in range(L_extra)]
+                score += Player.evaluate_window_longer(window, symbol)
+
+        # 6) Okna pionowe - długości L+1
+        for col in range(C):
+            for row in range(R - L_extra + 1):
+                window = [Player.cell(game, row + i, col) for i in range(L_extra)]
+                score += Player.evaluate_window_longer(window, symbol)
+
+        # 7) Okna przekątne w dół-prawo (\) - długości L+1
+        for row in range(R - L_extra + 1):
+            for col in range(C - L_extra + 1):
+                window = [Player.cell(game, row + i, col + i) for i in range(L_extra)]
+                score += Player.evaluate_window_longer(window, symbol)
+
+        # 8) Okna przekątne w górę-prawo (/) - długości L+1
+        for row in range(L_extra - 1, R):
+            for col in range(C - L_extra + 1):
+                window = [Player.cell(game, row - i, col + i) for i in range(L_extra)]
+                score += Player.evaluate_window_longer(window, symbol)
+
+        return score
+
+    @staticmethod
+    def make_move(game: Game) -> int:
+        """
+        Na podstawie dotychczasowej historii ruchów wybiera kolejny ruch.
+
+        1. Walidacja zakresów i przepełnienia kolumn.
+        2. Odtworzenie stanu planszy z historii.
+        3. Sprawdzenie natychmiastowego zwycięstwa.
+        4. Wywołanie alfabety z domyślną głębokością DEPTH.
+        """
+        
+        # Walidacja historii
+        for col in game.move_history:
+            if col < 0 or col >= game.n_columns:
+                raise ValueError(f"Niepoprawny ruch: kolumna {col} poza zakresem 0..{game.n_columns-1}")
+        for col in range(game.n_columns):
+            if game.move_history.count(col) > game.n_rows:
+                raise ValueError(f"Niepoprawny ruch: kolumna {col} przepełniona")
+        
+        # Odtwarzamy ruchy
+        new_game = Game(game.n_rows, game.n_columns, game.winning_length)
+        for idx, col in enumerate(game.move_history):
+            player = idx % 2
+            Player.drop_piece(new_game, col, player)
+        new_game.move_history = list(game.move_history)
+        current = len(game.move_history) % 2
+        new_game.current_player = current
+
+        # Natychmiastowe zwycięstwo
+        for col in Player.valid_moves(new_game):
+            child = Player.copy(new_game)
+            Player.drop_piece(child, col, current)
+            if Player.winning_move(child, current):
+                return col
+
+        col, _ = Player.alfabeta(new_game, Player.DEPTH, -math.inf, math.inf, maximizingPlayer=(current == 1))
         return col
 
+
+def draw_board(history, rows, columns):
+    """
+    Rysuje planszę na podstawie historii ruchów:
+    - history: lista numerów kolumn w kolejności wrzucania pionków.
+    - rows, columns: wymiary planszy.
+    """
+    
+    board_copy = [[] for _ in range(columns)]
+
+    player = 0
+    for i in history:
+        board_copy[i].append(str(player))
+        player = 1 - player
+    
+    # Uzupełnienie pustymi miejscami
+    for column in board_copy:
+        while len(column) < rows:
+            column.append("-")
+    
+    # Transpozycja: tworzymy wiersze for rysowania
+    board = [[] for _ in range(rows)]
+    row = 0
+    for i in board:
+        for j in range(columns):
+            i.append(board_copy[j][row])
+        row += 1
+    
+    # Rysujemy od góry w dół
+    for row in board[::-1]:
+        print('| ' + ' | '.join(row) + ' |')
+
 if __name__ == "__main__":
-    PLAYER = 0
-    BOT = 1
     game = Game()
-    bot = Player()
-
-    # 1) Wybór trybu gry
-    print("Wybierz tryb gry:")
-    print("1 = Gracz vs Bot")
-    print("2 = Bot vs Bot")
-    choice = input("Twoja opcja (1 lub 2): ")
-
-    if choice == '1':
-        human_vs_bot = True
-        print("Wybrano: Gracz vs Bot")
-        # 2) Wybór, kto zaczyna: Gracz czy Bot
-        first = input("Kto zaczyna? (1 = Gracz, 2 = Bot): ")
-        if first == '1':
-            turn = PLAYER
-        elif first == '2':
-            turn = BOT
-        else:
-            print("Niepoprawny wybór. Domyślnie zaczyna Gracz.")
-            turn = PLAYER
-    else:
-        human_vs_bot = False
-        print("Wybrano: Bot vs Bot")
-        turn = PLAYER
-
-    print()
-
-    tura = 0
-    while True:
-        tura += 1
-        print(f"Tura {tura}")
-
-        # Gracz vs Bot
-        if human_vs_bot and turn == PLAYER:
-            game.print_board()
-            try:
-                col = int(input(f"Twój ruch (0-{game.n_columns-1}): "))
-            except ValueError:
-                print("Podaj poprawny numer kolumny.")
-                continue
-
-            if col in game.valid_moves():
-                game.make_move(col)
-                print(f"Gracz wybiera kolumnę {col}\n")
-                if game.winning_move(PLAYER):
-                    game.print_board()
-                    print("Gracz wygrał!")
-                    break
-                turn = BOT
-
-        # Bot vs Bot
-        else:
-            start = time.time()
-            maximizing = (turn == BOT)
-            col, score, nodes = Player.alfabeta(game, Player.DEPTH, -math.inf, math.inf, maximizing)
-            end = time.time()
-            speed = int(nodes / (end - start)) if (end - start) > 0 else float('inf')
-
-            game.make_move(col)
-            if human_vs_bot:
-                print(f"Bot wybiera kolumnę {col}")
-                print(f"Głębokość: {Player.DEPTH}, Odwiedzone węzły: {nodes}, "
-                      f"Szybkość: {speed} węzłów/s, Ocena: {score}\n")
-            else:
-                gracze = {PLAYER: "Bot 0", BOT: "Bot 1"}
-                print(f"{gracze[turn]} wybiera kolumnę {col}")
-                print(f"Głębokość: {Player.DEPTH}, Odwiedzone węzły: {nodes}, "
-                      f"Szybkość: {speed} węzłów/s, Ocena: {score}\n")
-
-            game.print_board()
-
-            if game.winning_move(turn):
-                if human_vs_bot:
-                    print("Bot wygrał!")
-                    break
-                else:
-                    gracze = {PLAYER: "Bot 0", BOT: "Bot 1"}
-                    print(f"{gracze[turn]} wygrał!")
-                break
-
-            turn = 1 - turn
-
-        # Sprawdzenie remisu
-        if game.is_full():
-            print("Remis!")
-            break
-
-    # Wyświetlenie historii ruchów
-    print("Historia ruchów:")
-    print([m for m in game.move_history])
+    print("Podaj historię ruchów jako listę numerów kolumn, oddzielonych przecinkami (np. 0,3,1,1,0,1):")
+    wejscie = input("Historia ruchów: ")
+    try:
+        historia = [int(x.strip()) for x in wejscie.split(",") if x.strip()]
+        game.move_history = historia
+        start = time.time()
+        next_col = Player.make_move(game)
+        end = time.time()
+        draw_board(historia, game.n_rows, game.n_columns)
+        print(f"Zalecany następny ruch: kolumna {next_col}")
+        print(f"Czas ruchu: {end - start:.4f} sek.")
+    except ValueError as e:
+        print(f"Błąd: {e}")
+    except Exception as e:
+        print(f"Wystąpił nieoczekiwany błąd: {e}")
